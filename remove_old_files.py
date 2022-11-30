@@ -9,14 +9,26 @@ actiunea respectiva
 """
 import sys
 import os
-
+import stat
+import time
 
 try:
     # check path
     assert len(sys.argv) >= 2, "Provide file path!"
-    path = sys.argv[1]
-    assert os.path.isdir(path), "Path is not a valid dir!"
-    assert len(os.listdir(path)) != 0, "Dir is empty!"
+    origin_path = sys.argv[1]
+    assert os.path.isdir(origin_path), "Path is not a valid dir!"
+    assert len(os.listdir(origin_path)) != 0, "Dir is empty!"
+    
+    # walk dir
+    for root, dirs, files in os.walk(origin_path):
+        for file in files:
+            file_path = root + '\\'+ file
+            print(file_path)
+            file_stats = os.stat(file_path)
+            last_access_time = time.ctime(file_stats[stat.ST_ATIME])
+            creation_time = time.ctime(file_stats[stat.ST_CTIME])
+            print(f"\t[LAST_ACCESS_TIME]:\t{last_access_time}")
+            print(f"\t[CREATION_TIME]:\t{creation_time}\n")
     
 except Exception as e:
     print(e)
