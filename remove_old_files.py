@@ -7,6 +7,16 @@ spatiu ocupa (intr-un format intuitiiv: de ex. 3.1KB, 1.5MB, 2.1GB) si il va
 intreba pe care doreste sa le stearga. In functie de raspuns, acesta face 
 actiunea respectiva
 """
+import sys
+import os
 
 
-
+try:
+    # check path
+    assert len(sys.argv) >= 2, "Provide file path!"
+    path = sys.argv[1]
+    assert os.path.isdir(path), "Path is not a valid dir!"
+    assert len(os.listdir(path)) != 0, "Dir is empty!"
+    
+except Exception as e:
+    print(e)
