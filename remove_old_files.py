@@ -12,10 +12,52 @@ import sys
 import os
 import stat
 import time
+import argparse 
 
+# DE MODIFICAT
+# (DONE) meniu help
+# (DONE) stergere fisiere si dupa vechime in zile nu doar saptamani
+# (DONE) parmas --week --days --help
+# (DONE) sters toate fisierele cu * in loc de lista de index 0, 1, 2, ...
 
 WEEK_SCORE = 604800 # 1 week in seconds
 _weeks = 1
+DAY_SCORE = 86400 # 1 day in seconds
+_days = 1
+
+
+def validate_args():
+    global _days
+    global _weeks
+    if not args['path']:
+        print("[ERROR] Provide dir path!")
+        parser.print_help()
+
+    origin_path = args['path']
+    assert os.path.isdir(origin_path), "[ERROR] Path is not a valid dir!"
+    assert len(os.listdir(origin_path)) != 0, "Dir is empty!"
+
+    if args['weeks'] and args['days']:
+        print("[ERROR] -w(--week) and -d(--days) can not be used at the same time")
+        parser.print_help()
+        exit()
+    elif not args['weeks'] and not args['days']:
+        print("[ERROR] Provide number of days/weeks!")
+        parser.print_help()
+        exit()
+    elif args['days']:
+        if args["days"] > 0:
+            _days = args["days"]
+        else:
+            print("[ERROR] Provide positive number of days!")
+            exit()
+    elif args['weeks']:
+        if args["weeks"] > 0:
+            _weeks = args["weeks"]
+        else:
+            print("[ERROR] Provide positive number of weeks!")
+            exit()
+
 
 def compute_file_score(file_path):
     '''score = today - last_access'''
@@ -23,6 +65,7 @@ def compute_file_score(file_path):
     return (round(file_stats[stat.ST_SIZE]/1024, 2),          # size in KB
             time.ctime(file_stats[stat.ST_ATIME]), 
             time.time()-file_stats[stat.ST_ATIME])
+
 
 def is_number(num_param):
     try:
@@ -45,20 +88,24 @@ def try_to_remove_file(scores, index):
         print(f"File with index {index} was removed!")
         return True
 
+
 try:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--path', 
+                        help="The path of the folder where the files will be searched.")
+    parser.add_argument('-d', '--days', type=int,
+                        help="Find files that have not been accessed in the last x days.")
+    parser.add_argument('-w', '--weeks', type=int,
+                        help="Find files that have not been accessed in the last x weeks.")
+
+    args = vars(parser.parse_args())
+    validate_args()
     print("\n[START]")
-    # check path
-    assert len(sys.argv) >= 2, "[ERROR] Provide file path!"
-    origin_path = sys.argv[1]
-    assert os.path.isdir(origin_path), "[ERROR] Path is not a valid dir!"
-    assert len(os.listdir(origin_path)) != 0, "Dir is empty!"
-    # _min_score will be multiplied by num param (if necessary)
-    if len(sys.argv) == 3 and is_number(sys.argv[2]):
-        _weeks = int(sys.argv[2])
-    
+
     # walk dir
     scores = []
     count = 0
+    origin_path = args['path']
     for root, dirs, files in os.walk(origin_path):
         for file in files:
             file_path = root + '\\'+ file
@@ -67,21 +114,29 @@ try:
             res = compute_file_score(file_path)
             scores += [(file_path, res[0], res[1], res[2])]
 
-    scores = [elems for elems in scores if elems[3] > _weeks*WEEK_SCORE]
+    # filter scores by number of days/weeks
+    if args['weeks']:
+        scores = [elems for elems in scores if elems[3] > _weeks*WEEK_SCORE]
+    else:
+        scores = [elems for elems in scores if elems[3] > _days*DAY_SCORE]
     scores = sorted(scores, key=lambda elements: elements[3], reverse=True)
     index = 0
     if not len(scores):
-        print(f" There are no files that have not been accessed in the last {_weeks} weeks")
+        print(f" There are no files that have not been accessed for selected period")
     else:
-        print(f"\n[FILES NOT ACCESSED {_weeks} WEEK(S)]")
+        print(f"\n[FILES NOT ACCESSED IN SELECTED PERIOD]")
         for file, size, last_access_time, score in scores:
             print(f"{index}) {file}")
             print(f"   SIZE: {size} KB, LAST_ACCESS_TIME: {last_access_time}\n")
             index +=1
 
         # Ask user wich file to delete
-        file_to_del = input("Enter list of indexes coresponding to files that should be deleted (use just comma as separator):").split(', ')
-        indexes = [int(index) for index in file_to_del if is_number(index)]
+        file_to_del = input("List of indexes coresponding to files (comma as separator) or '*' to DELETE EVERYTHING:")
+        if file_to_del.strip() == "*":
+            indexes = range(len(scores))
+        else:
+            file_to_del = file_to_del.split(', ')
+            indexes = [int(index) for index in file_to_del if is_number(index)]
         if not len(indexes):
             print("Nothing to delete")
         else:
